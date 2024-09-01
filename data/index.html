@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature and Pressure Monitoring</title>
+    
+    <!-- Inclusion de Bootstrap CSS pour le style et la mise en page -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Inclusion de Bootstrap Icons pour des éléments d'interface supplémentaires -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    
+    <!-- Inclusion de jQuery pour une manipulation DOM plus facile et des requêtes AJAX -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Inclusion de Bootstrap JS et Popper.js pour des composants interactifs comme les modals et tooltips -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Inclusion de Chart.js pour la visualisation des données, et des plugins associés pour le formatage des dates et la fonction de zoom -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
+    
+    <!-- Inclusion de jsTree pour afficher des données hiérarchiques (comme des structures de fichiers) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+    
+    <!-- Inclusion du plugin contextmenu de jsTree pour des menus contextuels par clic droit dans l'arborescence des fichiers -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/plugins/contextmenu.min.js"></script>
+    
+    <!-- Inclusion de Split.js pour créer des panneaux divisés redimensionnables -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.5/split.min.js"></script>
+    
+    <style>
+        /* Style général du corps de la page */
+        body {
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Conteneur de hauteur totale pour l'ensemble de l'interface */
+        .container-fluid {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        /* Style pour la barre de titre */
+        #title-container {
+            text-align: center;
+            padding: 20px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        /* Conteneur pour la vue divisée entre les panneaux gauche et droit */
+        #split {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Les panneaux gauche et droit devraient avoir une barre de défilement si le contenu déborde */
+        #left-panel,
+        #right-panel {
+            overflow: auto;
+        }
+
+        /* Conteneur pour le graphique */
+        #chart-container {
+            width: 100%;
+            height: 80%;
+            position: relative;
+        }
+
+        /* Centrage du widget LittleFS */
+        #littlefs-widget {
+            margin-top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Groupement de boutons verticalement */
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* Espacement entre les boutons dans le groupe */
+        .button-group .btn {
+            margin: 5px 0;
+        }
+
+        /* Style du tableau pour la configuration du graphique */
+        table {
+            width: 100%;
+            margin-top: 20px;
+            font-size: 0.8em;
+        }
+
+        /* Centrage et rembourrage pour les cellules du tableau */
+        th,
+        td {
+            text-align: center;
+            padding: 5px;
+        }
+
+        /* Style du séparateur pour les panneaux divisés */
+        .gutter {
+            background-color: #ddd;
+            background-repeat: no-repeat;
+            background-position: 50%;
+        }
+
+        /* Style du curseur pour les séparateurs horizontaux */
+        .gutter.gutter-horizontal {
+            cursor: col-resize;
+        }
+
+        /* Style de l'icône du séparateur */
+        .gutter i {
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        /* Marge des cartes pour un espacement cohérent */
+        .card {
+            margin-bottom: 20px;
+        }
+
+        /* Style de l'en-tête des cartes */
+        .card-header {
+            font-size: 1em;
+            font-weight: bold;
+        }
+
+        /* Style moderne des boutons */
+        .btn-modern {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding: 10px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        /* Effet au survol pour les boutons modernes */
+        .btn-modern:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Conteneur principal pour l'application -->
+    <div class="container-fluid">
+        
+        <!-- Conteneur du titre en haut de la page -->
+        <div id="title-container">Echangeur à plaques Halle Technologique AgroParisTech</div>
+        
+        <!-- Panneaux divisés entre la section gauche et droite -->
+        <div id="split">
+            
+            <!-- Panneau gauche pour les contrôles et le graphique -->
+            <div id="left-panel" class="d-flex flex-column justify-content-start align-items-center">
+                
+                <!-- Groupe de boutons pour le journalisation, le zoom et le panoramique -->
+                <div class="button-group">
+                    <button id="toggleLogging" class="btn btn-modern" aria-label="Toggle Logging">Start Logging</button>
+                    <div class="zoom-controls">
+                        <button id="zoomIn" class="btn btn-primary btn-sm" aria-label="Zoom In">Zoom In</button>
+                        <button id="zoomOut" class="btn btn-primary btn-sm" aria-label="Zoom Out">Zoom Out</button>
+                        <button id="resetZoom" class="btn btn-secondary btn-sm" aria-label="Reset Zoom">Reset Zoom</button>
+                    </div>
+                    <div class="pan-controls">
+                        <button id="panLeft" class="btn btn-secondary btn-sm" aria-label="Pan Left"><i class="bi bi-arrow-left"></i></button>
+                        <button id="panRight" class="btn btn-secondary btn-sm" aria-label="Pan Right"><i class="bi bi-arrow-right"></i></button>
+                        <button id="panUp" class="btn btn-secondary btn-sm" aria-label="Pan Up"><i class="bi bi-arrow-up"></i></button>
+                        <button id="panDown" class="btn btn-secondary btn-sm" aria-label="Pan Down"><i class="bi bi-arrow-down"></i></button>
+                        <button id="resetPan" class="btn btn-secondary btn-sm" aria-label="Reset Pan"><i class="bi bi-arrow-repeat"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Conteneur pour le graphique de température -->
+                <div id="chart-container">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Panneau droit pour la configuration et la gestion des fichiers -->
+            <div id="right-panel" class="d-flex flex-column">
+                
+                <!-- Carte affichant l'état de LittleFS -->
+                <div class="card">
+                    <div class="card-header">LittleFS State</div>
+                    <div class="card-body">
+                        <div id="littlefs-widget">
+                            <div class="progress w-100">
+                                <div id="littleFSProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Carte pour la configuration de l'intervalle de temps -->
+                <div class="card">
+                    <div class="card-header">Intervalle de temps</div>
+                    <div class="card-body">
+                        <form id="configForm">
+                            <div class="form-group">
+                                <label for="dt">Timestep (ms):</label>
+                                <input type="number" class="form-control" id="dt" name="dt" value="1000">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm" aria-label="Save Config">Save Config</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Carte pour la récupération des fichiers de journalisation -->
+                <div class="card">
+                    <div class="card-header">Téléchargement</div>
+                    <div class="card-body">
+                        <form id="retrieveForm">
+                            <div class="form-group">
+                                <label for="date">Select Date:</label>
+                                <input type="date" class="form-control" id="date" name="date">
+                            </div>
+                            <button type="submit" class="btn btn-secondary btn-sm" aria-label="Retrieve Logs">Retrieve Logs</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Carte pour afficher et gérer les dossiers enregistrés -->
+                <div class="card">
+                    <div class="card-header">Dossiers enregistrés</div>
+                    <div class="card-body">
+                        <div id="file-tree"></div>
+                        <button id="refreshTree" class="btn btn-secondary btn-sm mt-2" aria-label="Refresh Tree">Refresh Tree</button>
+                    </div>
+                </div>
+                
+                <!-- Carte pour les options de configuration du graphique -->
+                <div class="card">
+                    <div class="card-header">Options du plot</div>
+                    <div class="card-body">
+                        <table id="plotConfigTable" class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Label</th>
+                                    <th>Show</th>
+                                    <th>Color</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fonction pour générer des couleurs dynamiques pour les séries de données
+        function generateColor(index, total) {
+            const hue = (index * 360 / total) % 360;
+            return `hsl(${hue}, 100%, 50%)`;
+        }
+
+        $(document).ready(() => {
+
+            // Initialisation de Split.js pour gérer les panneaux divisés
+            const splitInstance = Split(['#left-panel', '#right-panel'], {
+                sizes: [66, 34],
+                minSize: 200,
+                gutterSize: 10,
+                cursor: 'col-resize',
+                gutter: function (index, direction) {
+                    const gutter = document.createElement('div');
+                    gutter.className = `gutter gutter-${direction}`;
+                    const icon = document.createElement('i');
+                    icon.className = 'bi bi-chevron-left';
+                    gutter.appendChild(icon);
+                    return gutter;
+                },
+                elementStyle: (dimension, size, gutterSize) => ({
+                    'flex-basis': `calc(${size}% - ${gutterSize}px)`,
+                }),
+                gutterStyle: (dimension, gutterSize) => ({
+                    'flex-basis': `${gutterSize}px`,
+                }),
+            });
+
+            let rightPanelVisible = true;
+
+            // Fonction pour mettre à jour l'icône du panneau de droite
+            const updateTogglePanelIcon = () => {
+                const icon = $('.gutter i');
+                if (rightPanelVisible) {
+                    icon.removeClass('bi-chevron-right').addClass('bi-chevron-left');
+                } else {
+                    icon.removeClass('bi-chevron-left').addClass('bi-chevron-right');
+                }
+            };
+
+            // Gestion du clic pour masquer/afficher le panneau de droite
+            $('.gutter i').click(() => {
+                rightPanelVisible = !rightPanelVisible;
+                if (rightPanelVisible) {
+                    $('#right-panel').show();
+                    splitInstance.setSizes([66, 34]);
+                } else {
+                    $('#right-panel').hide();
+                    splitInstance.setSizes([100, 0]);
+                }
+                updateTogglePanelIcon();
+            });
+
+            // Chargement de la configuration initiale depuis le serveur
+            $.post('/initialConfig', (config) => {
+                $('#dt').val(config.dt);
+
+                if (config.log) {
+                    $('#toggleLogging').text('Stop Logging').removeClass('btn-start').addClass('btn-stop');
+                } else {
+                    $('#toggleLogging').text('Start Logging').removeClass('btn-stop').addClass('btn-start');
+                }
+
+                const usagePercentage = (config.fs.used / config.fs.total) * 100;
+                $('#littleFSProgressBar').css('width', `${usagePercentage}%`).attr('aria-valuenow', usagePercentage).text(`${usagePercentage.toFixed(2)}%`);
+            }, 'json');
+
+            // Fonction pour charger l'arborescence des fichiers depuis le serveur
+            const loadFileTree = () => {
+                $.post('/listDir', (data) => {
+                    $('#file-tree').jstree({
+                        'core': { 'data': parseFileTree(data), 'check_callback': true },
+                        'plugins': ['contextmenu'],
+                        'contextmenu': {
+                            'items': (node) => {
+                                const items = {
+                                    'Delete': {
+                                        'label': 'Delete',
+                                        'action': () => deleteFile(node)
+                                    }
+                                };
+                                if (node.id.endsWith('.txt')) {
+                                    items['Download'] = {
+                                        'label': 'Download',
+                                        'action': () => downloadFile(node)
+                                    };
+                                }
+                                return items;
+                            }
+                        }
+                    });
+                }, 'json');
+            };
+
+            // Fonction pour analyser les données de l'arborescence des fichiers
+            const parseFileTree = (data, path = '') => Object.keys(data).map(key => {
+                const fullPath = path ? `${path}/${key}` : key;
+                return typeof data[key] === 'object' ? {
+                    'id': fullPath,
+                    'text': key,
+                    'children': parseFileTree(data[key], fullPath)
+                } : {
+                    'id': fullPath,
+                    'text': `${key} (${data[key]} bytes)`,
+                    'icon': 'jstree-file'
+                };
+            });
+
+            // Fonction pour télécharger un fichier depuis le serveur
+            const downloadFile = (node) => {
+                $.post({
+                    url: '/RETRIEVE',
+                    data: JSON.stringify({ path: node.id }),
+                    contentType: 'application/json',
+                    success: (data) => {
+                        const blob = new Blob([data], { type: 'application/octet-stream' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = node.id;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    },
+                    error: (xhr, status, error) => console.error('Error downloading file:', error)
+                });
+            };
+
+            // Fonction pour supprimer un fichier ou répertoire sur le serveur
+            const deleteFile = (node) => {
+                $.post({
+                    url: '/DELETE',
+                    data: JSON.stringify({ path: node.id }),
+                    contentType: 'application/json',
+                    success: (response) => {
+                        $('#file-tree').jstree(true).delete_node(node);
+                        alert('File/Directory deleted successfully');
+                    },
+                    error: (xhr, status, error) => console.error('Error deleting file/directory:', error)
+                });
+            };
+
+            // Chargement initial de l'arborescence des fichiers
+            loadFileTree();
+
+            // Bouton pour rafraîchir l'arborescence des fichiers
+            $('#refreshTree').click(() => {
+                $('#file-tree').jstree("destroy").empty();
+                loadFileTree();
+            });
+
+            // Configuration et initialisation du graphique de température
+            const ctx = document.getElementById('temperatureChart').getContext('2d');
+            const temperatureChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } }
+                        },
+                        y: { beginAtZero: false }
+                    },
+                    plugins: {
+                        zoom: {
+                            pan: { enabled: true, mode: 'xy', speed: 20 },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: 'xy'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Gestion des événements de mise à jour des données depuis le serveur
+            const source = new EventSource('/events');
+            source.addEventListener('new_readings', (event) => {
+                const data = JSON.parse(event.data);
+                const time = new Date(data.t * 1000);
+
+                if (data.T) {
+                    data.T.forEach((temp, index) => {
+                        if (!temperatureChart.data.datasets[index]) {
+                            const color = generateColor(index, data.T.length + (data.P ? data.P.length : 0));
+                            temperatureChart.data.datasets.push({
+                                label: `Temperature ${index + 1}`,
+                                borderColor: color,
+                                backgroundColor: color,
+                                fill: false,
+                                data: []
+                            });
+                            addPlotConfigRow(index, `Temperature ${index + 1}`, color);
+                        }
+                        temperatureChart.data.datasets[index].data.push({ x: time, y: temp });
+                    });
+                }
+
+                if (data.P) {
+                    data.P.forEach((pressure, index) => {
+                        const pressureIndex = index + (data.T ? data.T.length : 0);
+                        if (!temperatureChart.data.datasets[pressureIndex]) {
+                            const color = generateColor(pressureIndex, data.T.length + data.P.length);
+                            temperatureChart.data.datasets.push({
+                                label: `Pressure ${index + 1}`,
+                                borderColor: color,
+                                backgroundColor: color,
+                                fill: false,
+                                data: []
+                            });
+                            addPlotConfigRow(pressureIndex, `Pressure ${index + 1}`, color);
+                        }
+                        temperatureChart.data.datasets[pressureIndex].data.push({ x: time, y: pressure });
+                    });
+                }
+
+                temperatureChart.update();
+
+                const usagePercentage = (data.fs[1] / data.fs[0]) * 100;
+                $('#littleFSProgressBar').css('width', `${usagePercentage}%`).attr('aria-valuenow', usagePercentage).text(`${usagePercentage.toFixed(2)}%`);
+            });
+
+            // Fonction pour ajouter une nouvelle ligne dans la configuration du graphique
+            const addPlotConfigRow = (index, label, color) => {
+                const row = `
+                    <tr data-index="${index}">
+                        <td><input type="text" class="form-control plot-label" value="${label}"></td>
+                        <td><input type="checkbox" class="plot-show" checked></td>
+                        <td><input type="color" class="form-control plot-color" value="${color}"></td>
+                    </tr>
+                `;
+                $('#plotConfigTable tbody').append(row);
+            };
+
+            // Gestion des changements d'étiquette dans la configuration du graphique
+            $('#plotConfigTable').on('input change', '.plot-label', function () {
+                const index = $(this).closest('tr').data('index');
+                temperatureChart.data.datasets[index].label = $(this).val();
+                temperatureChart.update();
+            });
+
+            // Gestion de l'affichage/masquage des séries dans le graphique
+            $('#plotConfigTable').on('input change', '.plot-show', function () {
+                const index = $(this).closest('tr').data('index');
+                temperatureChart.data.datasets[index].hidden = !$(this).is(':checked');
+                temperatureChart.update();
+            });
+
+            // Gestion du changement de couleur des séries dans le graphique
+            $('#plotConfigTable').on('input change', '.plot-color', function () {
+                const index = $(this).closest('tr').data('index');
+                const newColor = $(this).val();
+                temperatureChart.data.datasets[index].borderColor = newColor;
+                temperatureChart.data.datasets[index].backgroundColor = newColor;
+                temperatureChart.update();
+            });
+
+            // Envoi de la configuration mise à jour au serveur
+            $('#configForm').submit((event) => {
+                event.preventDefault();
+                const config = { dt: parseInt($('#dt').val()) };
+                $.post({
+                    url: '/CONFIG',
+                    data: JSON.stringify(config),
+                    contentType: 'application/json',
+                    success: (response) => console.log('Config Updated:', response)
+                });
+            });
+
+            let logging = false;
+            // Gestion du bouton de démarrage/arrêt de la journalisation
+            $('#toggleLogging').click(() => {
+                logging = !logging;
+                const log = logging ? 1 : 0;
+                $('#toggleLogging').text(logging ? 'Stop Logging' : 'Start Logging').toggleClass('btn-start btn-stop');
+
+                $.post({
+                    url: '/CONFIG',
+                    data: JSON.stringify({ log }),
+                    contentType: 'application/json',
+                    success: (response) => console.log('Logging toggled:', response)
+                });
+            });
+
+            // Formatage de la date pour la sélection de fichier
+            const formatDate = (date) => {
+                const d = new Date(date);
+                const year = d.getFullYear();
+                let month = d.getMonth() + 1;
+                let day = d.getDate();
+                month = month < 10 ? `0${month}` : month;
+                day = day < 10 ? `0${day}` : day;
+                return `${year}-${month}-${day}`;
+            };
+
+            $('#date').val(formatDate(new Date()));
+
+            // Gestion de la soumission du formulaire de récupération de fichiers
+            $('#retrieveForm').submit((event) => {
+                event.preventDefault();
+                const formattedDate = formatDate($('#date').val());
+
+                $.post({
+                    url: '/RETRIEVE',
+                    data: JSON.stringify({ date: formattedDate }),
+                    contentType: 'application/json',
+                    success: (data) => {
+                        const blob = new Blob([data], { type: 'application/octet-stream' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = `logs_${formattedDate}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    },
+                    error: (xhr, status, error) => console.error('Error retrieving logs:', error)
+                });
+            });
+
+            // Gestion des boutons de zoom
+            $('#zoomIn').click(() => temperatureChart.zoom(1.1));
+            $('#zoomOut').click(() => temperatureChart.zoom(0.9));
+            $('#resetZoom').click(() => temperatureChart.resetZoom());
+            
+            // Gestion des boutons de panoramique
+            $('#panLeft').click(() => temperatureChart.pan({ x: -50, y: 0 }));
+            $('#panRight').click(() => temperatureChart.pan({ x: 50, y: 0 }));
+            $('#panUp').click(() => temperatureChart.pan({ x: 0, y: -50 }));
+            $('#panDown').click(() => temperatureChart.pan({ x: 0, y: 50 }));
+            $('#resetPan').click(() => temperatureChart.resetZoom());
+        });
+    </script>
+</body>
+
+</html>
